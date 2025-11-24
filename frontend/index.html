@@ -10,10 +10,10 @@
             // Este script tenta detectar se o servidor atual está ativo
             // Se não estiver, tenta outros servidores ANTES de mostrar erro
             const currentHost = window.location.hostname;
-            const currentPort = window.location.port || '5000';
+            const currentPort = window.location.port || '5003';
             const currentPath = window.location.pathname;
             // Sempre usar portas diferentes (estratégia de portas)
-            const servers = ['5000', '5001', '5002'];
+            const servers = ['5003', '5004', '5005'];
             
             // Detectar se precisa testar servidores
             let testedCurrent = false;
@@ -39,7 +39,7 @@
                 // Testar servidor atual primeiro
                 if (!testedCurrent) {
                     testedCurrent = true;
-                    const currentServer = currentPort || '5000';
+                    const currentServer = currentPort || '5003';
                     const currentActive = await testServer(currentServer);
                     if (currentActive) {
                         return; // Servidor atual está ativo, continuar normalmente
@@ -64,7 +64,7 @@
                 
                 // Nenhum servidor ativo - redirecionar para fallback
                 console.log('❌ Nenhum servidor ativo encontrado, redirecionando para fallback...');
-                window.location.replace(`http://${currentHost}:5000/fallback.html`);
+                window.location.replace(`http://${currentHost}:5003/fallback.html`);
             }
             
             // Executar imediatamente

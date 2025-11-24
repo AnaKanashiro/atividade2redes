@@ -64,7 +64,7 @@ services:
     volumes:
       - ./frontend:/app/frontend:ro
     ports:
-      - "5000:5000"  # Porta 5000 no host
+      - "5003:5000"  # Porta 5003 no host (5000 estava em uso)
     depends_on:
       database:
         condition: service_healthy
@@ -96,7 +96,7 @@ services:
     volumes:
       - ./frontend:/app/frontend:ro
     ports:
-      - "5001:5000"  # Porta 5001 no host
+      - "5004:5000"  # Porta 5004 no host (5001 estava em uso)
     depends_on:
       database:
         condition: service_healthy
@@ -128,7 +128,7 @@ services:
     volumes:
       - ./frontend:/app/frontend:ro
     ports:
-      - "5002:5000"  # Porta 5002 no host
+      - "5005:5000"  # Porta 5005 no host (5002 estava em uso)
     depends_on:
       database:
         condition: service_healthy

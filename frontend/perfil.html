@@ -8,10 +8,10 @@
     <script>
         (function() {
             const currentHost = window.location.hostname;
-            const currentPort = window.location.port || '5000';
+            const currentPort = window.location.port || '5003';
             const currentPath = window.location.pathname;
             // Sempre usar portas diferentes (estratégia de portas)
-            const servers = ['5000', '5001', '5002'];
+            const servers = ['5003', '5004', '5005'];
             
             let testedCurrent = false;
             
@@ -63,7 +63,7 @@
                 
                 // Se nenhum servidor está ativo, redirecionar para fallback
                 console.log('❌ Nenhum servidor ativo encontrado, redirecionando para fallback...');
-                window.location.replace(`http://${currentHost}:5000/fallback.html`);
+                window.location.replace(`http://${currentHost}:5003/fallback.html`);
             }
             
             checkAndRedirect();

@@ -24,9 +24,9 @@ class APIClient {
                      ? currentHost : currentHost;
         
         this.servers = [
-            { url: `http://${host}:5000`, name: 'http1' },
-            { url: `http://${host}:5001`, name: 'http2' },
-            { url: `http://${host}:5002`, name: 'http3' }
+            { url: `http://${host}:5003`, name: 'http1' },
+            { url: `http://${host}:5004`, name: 'http2' },
+            { url: `http://${host}:5005`, name: 'http3' }
         ];
         
         console.log('🌐 Servidores configurados:', this.servers.map(s => s.url));
