@@ -2,8 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Instalar dependências do sistema
+# Instalar dependências do sistema necessárias para PostgreSQL
+# CORREÇÃO: Adicionados os pacotes que faltavam
 RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar requirements e instalar dependências Python
@@ -16,9 +19,8 @@ COPY backend/ .
 # Criar diretório para arquivos estáticos
 RUN mkdir -p /app/static
 
-# Expor porta
+# Expor porta interna
 EXPOSE 5000
 
 # Comando para iniciar a aplicação
 CMD ["python", "app.py"]
-

@@ -13,9 +13,7 @@ volumes:
     driver: local
 
 services:
-  # ============================================
-  # BANCO DE DADOS (1 servidor)
-  # ============================================
+  # BANCO DE DADOS
   database:
     image: postgres:15-alpine
     container_name: trabalho-database
@@ -33,7 +31,7 @@ services:
       - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql
       - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
     ports:
-      - "5432:5432"
+      - "172.20.0.20:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U trabalho"]
       interval: 10s
@@ -41,9 +39,7 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ============================================
-  # SERVIDORES HTTP (3 servidores idênticos)
-  # ============================================
+  # HTTP 1 - Roda na Porta 80 do IP .10
   http1:
     build:
       context: .
@@ -56,26 +52,15 @@ services:
     environment:
       - SERVER_NAME=http1-server
       - DB_HOST=172.20.0.20
-      - DB_PORT=5432
-      - DB_NAME=meutrabalho
-      - DB_USER=trabalho
-      - DB_PASSWORD=trabalho123
-      - FLASK_ENV=production
     volumes:
       - ./frontend:/app/frontend:ro
     ports:
-      - "5003:5000"  # Porta 5003 no host (5000 estava em uso)
+      - "172.20.0.10:80:5000" # Mapeia porta 80 externa
     depends_on:
       database:
         condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
 
+  # HTTP 2 - Roda na Porta 80 do IP .11
   http2:
     build:
       context: .
@@ -88,26 +73,15 @@ services:
     environment:
       - SERVER_NAME=http2-server
       - DB_HOST=172.20.0.20
-      - DB_PORT=5432
-      - DB_NAME=meutrabalho
-      - DB_USER=trabalho
-      - DB_PASSWORD=trabalho123
-      - FLASK_ENV=production
     volumes:
       - ./frontend:/app/frontend:ro
     ports:
-      - "5004:5000"  # Porta 5004 no host (5001 estava em uso)
+      - "172.20.0.11:80:5000" # Mapeia porta 80 externa
     depends_on:
       database:
         condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
 
+  # HTTP 3 - Roda na Porta 80 do IP .12
   http3:
     build:
       context: .
@@ -120,29 +94,15 @@ services:
     environment:
       - SERVER_NAME=http3-server
       - DB_HOST=172.20.0.20
-      - DB_PORT=5432
-      - DB_NAME=meutrabalho
-      - DB_USER=trabalho
-      - DB_PASSWORD=trabalho123
-      - FLASK_ENV=production
     volumes:
       - ./frontend:/app/frontend:ro
     ports:
-      - "5005:5000"  # Porta 5005 no host (5002 estava em uso)
+      - "172.20.0.12:80:5000" # Mapeia porta 80 externa
     depends_on:
       database:
         condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
 
-  # ============================================
-  # SERVIDOR DNS (1 servidor)
-  # ============================================
+  # DNS - Roda na porta 5353 (Mac bloqueia a 53)
   dns:
     build:
       context: ./dns
@@ -153,20 +113,14 @@ services:
       trabalho_net:
         ipv4_address: 172.20.0.5
     ports:
-      - "53:53/udp"
-      - "53:53/tcp"
-      - "953:953/tcp"
+      # Mapeando porta externa 1053 para interna 53
+      - "172.20.0.5:1053:53/udp"
+      - "172.20.0.5:1053:53/tcp"
     volumes:
       - dns_data:/var/cache/bind
       - ./dns/named.conf:/etc/bind/named.conf:ro
       - ./dns/db.meutrabalho.com.br:/etc/bind/db.meutrabalho.com.br:ro
       - ./dns/db.20.172:/etc/bind/db.20.172:ro
-    depends_on:
-      - http1
-      - http2
-      - http3
-    restart: unless-stopped
     cap_add:
       - NET_BIND_SERVICE
     command: ["named", "-g", "-c", "/etc/bind/named.conf", "-u", "bind"]
-

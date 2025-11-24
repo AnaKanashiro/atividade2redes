@@ -4,141 +4,50 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meu Perfil - Meu Trabalho</title>
-    <!-- Script de detecção de servidor ativo - executa imediatamente -->
     <script>
         (function() {
-            const currentHost = window.location.hostname;
-            const currentPort = window.location.port || '5003';
-            const currentPath = window.location.pathname;
-            // Sempre usar portas diferentes (estratégia de portas)
-            const servers = ['5003', '5004', '5005'];
+            // Lógica de Failover IP
+            const servers = ['172.20.0.10', '172.20.0.11', '172.20.0.12'];
             
-            let testedCurrent = false;
-            
-            async function testServer(serverAddr) {
+            async function ensureConnection() {
                 try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 2000);
-                    // Se serverAddr é só a porta, usar currentHost
-                    const url = serverAddr.includes(':') 
-                        ? `http://${serverAddr}/api/health` 
-                        : `http://${currentHost}:${serverAddr}/api/health`;
-                    const response = await fetch(url, {
-                        method: 'GET',
-                        credentials: 'include',
-                        signal: controller.signal
-                    });
-                    clearTimeout(timeoutId);
-                    return response && response.ok;
-                } catch (e) {
-                    return false;
-                }
-            }
-            
-            async function checkAndRedirect() {
-                // Testar servidor atual primeiro
-                if (!testedCurrent) {
-                    testedCurrent = true;
-                    const currentActive = await testServer(currentPort);
-                    if (currentActive) {
-                        return; // Servidor atual está ativo, continuar normalmente
-                    }
-                }
+                    // Tenta falar com a API local
+                    const r = await fetch('/api/health');
+                    if(r.ok) return;
+                } catch(e) {}
+
+                console.log('⚠️ Servidor atual caiu. Buscando outro...');
                 
-                // Se servidor atual não está ativo, tentar outros
-                for (const server of servers) {
-                    if (server !== currentPort) {
-                        const isActive = await testServer(server);
-                        if (isActive) {
-                            // Redirecionar para servidor ativo
-                            const redirectUrl = server.includes(':') 
-                                ? `http://${server}${currentPath}${window.location.search}`
-                                : `http://${currentHost}:${server}${currentPath}${window.location.search}`;
-                            console.log(`🔄 Redirecionando para servidor ativo: ${redirectUrl}`);
-                            window.location.replace(redirectUrl);
+                for(const ip of servers) {
+                    if(ip === window.location.hostname) continue;
+                    try {
+                        const r = await fetch(`http://${ip}/api/health`, {timeout: 1000});
+                        if(r.ok) {
+                            window.location.replace(`http://${ip}/perfil.html`);
                             return;
                         }
-                    }
+                    } catch(e){}
                 }
-                
-                // Se nenhum servidor está ativo, redirecionar para fallback
-                console.log('❌ Nenhum servidor ativo encontrado, redirecionando para fallback...');
-                window.location.replace(`http://${currentHost}:5003/fallback.html`);
+                // Se nenhum IP responde, fallback
+                window.location.href = '/fallback.html';
             }
-            
-            checkAndRedirect();
+            ensureConnection();
         })();
     </script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 700px;
-            margin: 50px auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .perfil-card {
-            background: white;
-            border: 1px solid #ddd;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 30px;
-        }
-        .info-item {
-            margin-bottom: 25px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #eee;
-        }
-        .info-item:last-child {
-            border-bottom: none;
-        }
-        .info-label {
-            font-weight: bold;
-            color: #666;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 8px;
-        }
-        .info-value {
-            margin-top: 5px;
-            color: #333;
-            font-size: 16px;
-            word-break: break-all;
-        }
-        .hostname {
-            color: #007bff;
-            font-weight: 500;
-        }
-        .codigo-sessao {
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            color: #666;
-            background-color: #f8f9fa;
-            padding: 8px;
-            border-radius: 4px;
-        }
-        button {
-            padding: 12px 30px;
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 20px;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #c82333;
-        }
-        .loading {
-            color: #999;
-            font-style: italic;
-        }
+        /* MANTENHA O CSS ORIGINAL AQUI */
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 50px auto; padding: 20px; background-color: #f5f5f5; }
+        .perfil-card { background: white; border: 1px solid #ddd; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; margin-bottom: 30px; }
+        .info-item { margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+        .info-item:last-child { border-bottom: none; }
+        .info-label { font-weight: bold; color: #666; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .info-value { margin-top: 5px; color: #333; font-size: 16px; word-break: break-all; }
+        .hostname { color: #007bff; font-weight: 500; }
+        .codigo-sessao { font-family: 'Courier New', monospace; font-size: 12px; color: #666; background-color: #f8f9fa; padding: 8px; border-radius: 4px; }
+        button { padding: 12px 30px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 20px; font-size: 16px; }
+        button:hover { background-color: #c82333; }
+        .loading { color: #999; font-style: italic; }
     </style>
 </head>
 <body>
@@ -174,60 +83,31 @@
                     return;
                 }
                 
-                if (!response.ok) {
-                    throw new Error('Erro ao carregar perfil');
-                }
+                if (!response.ok) throw new Error('Erro');
                 
                 const data = await response.json();
                 
                 document.getElementById('nome').textContent = data.nome;
                 document.getElementById('hostname').textContent = data.hostname;
                 
-                // Formatar data
                 const dataLogin = new Date(data.data_login);
                 document.getElementById('dataLogin').textContent = 
-                    dataLogin.toLocaleString('pt-BR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit'
-                    });
+                    dataLogin.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 
                 document.getElementById('codigoSessao').textContent = data.codigo_sessao;
             } catch (error) {
-                console.error('Erro ao carregar perfil:', error);
-                const errorMsg = error.message || 'Erro desconhecido';
-                
-                // Se é erro de "nenhum servidor disponível", redirecionar para fallback
-                if (errorMsg.includes('Nenhum servidor') || errorMsg.includes('disponível')) {
-                    console.log('❌ Nenhum servidor disponível, redirecionando para fallback...');
-                    window.location.href = '/fallback.html';
-                    return;
-                }
-                
-                // Tentar recarregar (vai tentar próximo servidor automaticamente)
-                console.log('🔄 Tentando recarregar perfil em outro servidor...');
+                console.log('Erro carregar perfil. Tentando reload...');
                 setTimeout(() => carregarPerfil(), 1000);
             }
         }
         
         async function logout() {
-            try {
-                await apiClient.post('/api/logout', {});
-            } catch (error) {
-                console.error('Erro no logout:', error);
-            }
-            
-            // Limpar cookie e redirecionar
+            try { await apiClient.post('/api/logout', {}); } catch (e) {}
             document.cookie = 'session_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
             window.location.href = '/';
         }
         
-        // Carregar perfil ao abrir a página
         carregarPerfil();
     </script>
 </body>
 </html>
-

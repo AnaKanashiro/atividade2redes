@@ -266,3 +266,21 @@ atividade2redes/
 ---
 
 **Desenvolvido com Docker Compose! 🐳**
+
+
+para MacBook:
+
+3 tipos de flush necessários, na ordem de execução
+
+1 - Flush de DNS do Sistema Operacional (macOS)
+sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+
+2 - Flush de DNS do Navegador (Chrome Internal)
+Aba: chrome://net-internals/#dns
+Botão: "Clear host cache"
+
+3 - Flush de Sockets / TCP (O "Matador de Round Robin")
+Aba: chrome://net-internals/#sockets
+Botão: "Flush socket pools"
+
+www.meutrabalho.com.br 

@@ -2,7 +2,7 @@
 ; Round Robin - 3 servidores HTTP
 ; Trabalho 02 - Redes
 
-$TTL 60  ; TTL baixo (60 segundos) para testes rápidos
+$TTL 0   ; TTL ZERO para forçar consulta a cada request
 
 ; SOA Record
 @       IN      SOA     dns-server.meutrabalho.com.br. admin.meutrabalho.com.br. (
@@ -19,9 +19,9 @@ $TTL 60  ; TTL baixo (60 segundos) para testes rápidos
 ; Round Robin - 3 servidores HTTP
 ; Cada servidor tem um IP diferente na rede Docker para Round Robin funcionar
 ; IPs dos containers HTTP na rede Docker (172.20.0.0/16)
-www     IN      A       172.20.0.10    ; http1-server
-www     IN      A       172.20.0.11    ; http2-server
-www     IN      A       172.20.0.12    ; http3-server
+www     0       IN      A       172.20.0.10
+www     0       IN      A       172.20.0.11
+www     0       IN      A       172.20.0.12
 
 ; Nameserver (IP interno do Docker - apenas para referência)
 dns-server   IN      A       172.20.0.5

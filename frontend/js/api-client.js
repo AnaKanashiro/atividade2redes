@@ -1,178 +1,111 @@
 /**
- * Cliente API com detecção de falha e retry automático
- * Ponto Extra: Detecta servidor inativo e tenta próximo servidor
+ * Cliente API com prioridade de Origem (Domain-First)
+ * Corrige erro 401 de Cookies
  */
 
 class APIClient {
     constructor() {
-        // Detectar origem atual (hostname e protocolo)
-        const currentOrigin = window.location.origin;
-        const currentHost = window.location.hostname;
-        const currentPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
-        
-        // Lista de servidores conhecidos
-        // Com Round Robin DNS real, todos os servidores usam a mesma porta (5000)
-        // mas em IPs diferentes (172.20.0.10, 172.20.0.11, 172.20.0.12)
-        // O DNS alterna entre os IPs, então usamos o hostname resolvido pelo DNS
-        const baseUrl = `${window.location.protocol}//${currentHost}`;
-        
-        // Configurar servidores baseado na estratégia de portas
-        // Cada servidor HTTP está mapeado para uma porta diferente no host
-        // SEMPRE usar portas diferentes, independente do hostname
-        const host = (currentHost === 'localhost' || currentHost === '127.0.0.1' || 
-                     currentHost === 'www.meutrabalho.com.br' || currentHost === 'meutrabalho.com.br')
-                     ? currentHost : currentHost;
-        
+        // LISTA DE SERVIDORES
+        // O primeiro item deve ser SEMPRE a origem atual (seja ela domínio ou IP)
+        // Isso garante que o cookie seja enviado corretamente.
         this.servers = [
-            { url: `http://${host}:5003`, name: 'http1' },
-            { url: `http://${host}:5004`, name: 'http2' },
-            { url: `http://${host}:5005`, name: 'http3' }
+            { url: window.location.origin, name: 'current-origin' }, // http://www.meutrabalho.com.br
+            { url: 'http://172.20.0.10', name: 'http1' },
+            { url: 'http://172.20.0.11', name: 'http2' },
+            { url: 'http://172.20.0.12', name: 'http3' }
         ];
         
-        console.log('🌐 Servidores configurados:', this.servers.map(s => s.url));
+        // Remove duplicatas se eu já estiver acessando pelo IP direto
+        this.servers = this.servers.filter((v,i,a)=>a.findIndex(t=>(t.url===v.url))===i);
+
+        console.log('🌐 Estratégia de Conexão:', this.servers.map(s => s.url));
         
-        // Servidor atual sendo usado
-        this.currentServerIndex = 0;
-        this.baseUrl = null;
-        
-        // Cache de servidores ativos (para evitar testar todos sempre)
-        this.activeServers = [];
+        this.baseUrl = this.servers[0].url; 
     }
 
-    /**
-     * Cria um timeout para fetch
-     */
     createTimeout(ms) {
         return new Promise((_, reject) => {
             setTimeout(() => reject(new Error('Timeout')), ms);
         });
     }
 
-    /**
-     * Encontra um servidor ativo testando cada um
-     */
+    // Tenta encontrar um servidor vivo se o atual falhar
     async findActiveServer() {
-        // Limpar cache de servidores ativos se estiver vazio ou se todos falharam
-        // Testar todos os servidores em ordem (ignorar cache para garantir que testamos todos)
-        console.log('🔍 Procurando servidor ativo...');
+        console.log('🔍 Buscando servidor alternativo...');
         
-        for (let i = 0; i < this.servers.length; i++) {
+        // Começa do índice 1 porque o 0 (origem atual) teoricamente falhou
+        for (let i = 1; i < this.servers.length; i++) {
             try {
-                console.log(`   Testando ${this.servers[i].name} (${this.servers[i].url})...`);
                 const response = await Promise.race([
-                    fetch(`${this.servers[i].url}/api/health`, {
-                        method: 'GET',
-                        credentials: 'include',
-                        mode: 'cors'
-                    }),
-                    this.createTimeout(3000)  // Timeout maior para dar mais tempo
+                    fetch(`${this.servers[i].url}/api/health`, { credentials: 'include' }),
+                    this.createTimeout(1500)
                 ]);
                 
                 if (response && response.ok) {
-                    this.currentServerIndex = i;
+                    console.log(`✅ Servidor de resgate encontrado: ${this.servers[i].url}`);
                     this.baseUrl = this.servers[i].url;
-                    this.activeServers = [i]; // Atualizar lista de ativos
-                    console.log(`✅ Servidor ativo encontrado: ${this.servers[i].name} (${this.servers[i].url})`);
-                    return this.servers[i].url;
-                } else {
-                    console.log(`❌ Servidor ${this.servers[i].name} retornou status ${response?.status}`);
+                    return this.baseUrl;
                 }
             } catch (e) {
-                const errorMsg = e.message || 'Erro desconhecido';
-                console.log(`❌ Servidor ${this.servers[i].name} inativo (${errorMsg}), tentando próximo...`);
+                console.log(`❌ ${this.servers[i].url} inativo.`);
             }
         }
-
-        // Nenhum servidor ativo encontrado
-        console.error('❌ Nenhum servidor HTTP está disponível');
-        throw new Error('Nenhum servidor HTTP está disponível');
+        throw new Error('Todos os servidores estão inativos.');
     }
 
-    /**
-     * Faz uma requisição com retry automático
-     */
     async request(endpoint, options = {}) {
-        const maxRetries = this.servers.length;
-        let lastError = null;
+        const maxRetries = 2; // Tenta a origem atual, depois tenta failover
 
         for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
-                // Sempre encontrar servidor ativo antes de fazer requisição
-                // Isso garante que se um servidor caiu, vamos tentar outro
-                const baseUrl = await this.findActiveServer();
-                this.baseUrl = baseUrl;
+                // Se URL base for a mesma da janela, usa caminho relativo (melhor pra cookies)
+                let url;
+                if (this.baseUrl === window.location.origin) {
+                    url = endpoint; // ex: /api/login
+                } else {
+                    url = `${this.baseUrl}${endpoint}`; // ex: http://172.20.0.10/api/login
+                }
 
-                const url = `${baseUrl}${endpoint}`;
-                
-                console.log(`🔄 Tentando requisição para: ${url}`);
+                console.log(`🔄 Request: ${url}`);
                 
                 const response = await Promise.race([
-                    fetch(url, {
-                        ...options,
-                        credentials: 'include',
-                        mode: 'cors'
-                    }),
+                    fetch(url, { ...options, credentials: 'include' }),
                     this.createTimeout(5000)
                 ]);
 
-                // Se sucesso, retornar resposta
-                if (response.ok || response.status === 401) {
-                    console.log(`✅ Requisição bem-sucedida para: ${url}`);
+                // 401 é "sucesso de rede" (servidor respondeu), então retornamos a resposta
+                // para a aplicação tratar (redirecionar pra login)
+                if (response.ok || response.status === 401 || response.status === 400 || response.status === 404) {
                     return response;
                 }
 
-                // Se erro 5xx ou 0 (network error), tentar próximo servidor
-                if (response.status >= 500 || response.status === 0) {
-                    console.log(`⚠️ Erro ${response.status} do servidor, tentando próximo...`);
-                    // Marcar servidor atual como inativo
-                    this.activeServers = this.activeServers.filter(i => i !== this.currentServerIndex);
-                    this.currentServerIndex = null;
-                    this.baseUrl = null;
-                    continue;
-                }
-
-                // Outros erros (4xx), retornar normalmente
-                return response;
+                // Se for erro 500 ou falha de rede, lança erro para cair no catch e tentar outro server
+                throw new Error(`Erro de Servidor: ${response.status}`);
 
             } catch (error) {
-                lastError = error;
-                const errorMsg = error.message || 'Erro desconhecido';
-                console.log(`❌ Erro na requisição (tentativa ${attempt + 1}/${maxRetries}):`, errorMsg);
+                console.log(`⚠️ Falha na tentativa ${attempt}:`, error.message);
                 
-                // Se não foi timeout/network error, não tentar novamente
-                if (errorMsg !== 'Timeout' && !errorMsg.includes('Failed to fetch') && !errorMsg.includes('NetworkError') && !errorMsg.includes('Nenhum servidor') && !errorMsg.includes('fetch')) {
-                    throw error;
-                }
-
-                // Limpar cache de servidor atual (marcar como inativo)
-                if (this.currentServerIndex !== null) {
-                    this.activeServers = this.activeServers.filter(i => i !== this.currentServerIndex);
-                    console.log(`🗑️ Removendo servidor ${this.servers[this.currentServerIndex].name} da lista de ativos`);
-                }
-                this.currentServerIndex = null;
-                this.baseUrl = null;
-
-                // Aguardar um pouco antes de tentar novamente
-                if (attempt < maxRetries - 1) {
-                    console.log(`⏳ Aguardando 500ms antes de tentar próximo servidor...`);
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                // Se falhou na origem atual, tenta achar um IP alternativo
+                if (attempt === 0) {
+                    try {
+                        await this.findActiveServer();
+                        // Se achou novo servidor, loop continua e tenta de novo
+                    } catch (fatal) {
+                        break; // Ninguém responde
+                    }
                 }
             }
         }
-
-        // Se chegou aqui, nenhum servidor está disponível
-        // Redirecionar para fallback se estivermos em uma página que precisa de servidor
-        if (window.location.pathname !== '/fallback.html' && window.location.pathname !== '/') {
-            console.error('❌ Nenhum servidor disponível, redirecionando para fallback...');
-            window.location.href = '/fallback.html';
-        }
         
-        throw lastError || new Error('Falha ao conectar com os servidores');
+        // Se chegamos aqui, falha total
+        if (window.location.pathname !== '/fallback.html') {
+             // Redirecionamento de emergência via browser
+             // Tenta o primeiro IP fixo se o domínio morreu
+             window.location.href = 'http://172.20.0.10/fallback.html';
+        }
+        throw new Error('Falha total de conexão');
     }
 
-    /**
-     * Métodos auxiliares para requisições comuns
-     */
     async get(endpoint) {
         return this.request(endpoint, { method: 'GET' });
     }
@@ -186,6 +119,4 @@ class APIClient {
     }
 }
 
-// Criar instância global
 const apiClient = new APIClient();
-

@@ -4,142 +4,55 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Meu Trabalho</title>
-    <!-- Script de detecção de servidor ativo - executa imediatamente -->
     <script>
         (function() {
-            // Este script tenta detectar se o servidor atual está ativo
-            // Se não estiver, tenta outros servidores ANTES de mostrar erro
-            const currentHost = window.location.hostname;
-            const currentPort = window.location.port || '5003';
-            const currentPath = window.location.pathname;
-            // Sempre usar portas diferentes (estratégia de portas)
-            const servers = ['5003', '5004', '5005'];
+            // Lista de IPs (Arquitetura Nova)
+            const servers = ['172.20.0.10', '172.20.0.11', '172.20.0.12'];
             
-            // Detectar se precisa testar servidores
-            let testedCurrent = false;
-            
-            async function testServer(serverAddr) {
+            async function checkCurrentAndFailover() {
                 try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 1000);
-                    const url = serverAddr.includes(':') ? `http://${serverAddr}/api/health` : `http://${currentHost}:${serverAddr}/api/health`;
-                    const response = await fetch(url, {
-                        method: 'GET',
-                        credentials: 'include',
-                        signal: controller.signal
-                    });
-                    clearTimeout(timeoutId);
-                    return response && response.ok;
+                    // Testa se o servidor onde a página carregou (ou o domínio) está respondendo API
+                    const resp = await fetch('/api/health', { method: 'GET', credentials: 'include' });
+                    if (resp.ok) return; // Tudo certo, fica aqui.
                 } catch (e) {
-                    return false;
+                    console.log('⚠️ Servidor atual instável, procurando alternativa...');
                 }
-            }
-            
-            async function checkAndRedirect() {
-                // Testar servidor atual primeiro
-                if (!testedCurrent) {
-                    testedCurrent = true;
-                    const currentServer = currentPort || '5003';
-                    const currentActive = await testServer(currentServer);
-                    if (currentActive) {
-                        return; // Servidor atual está ativo, continuar normalmente
-                    }
-                }
-                
-                // Servidor atual inativo, procurar outro
-                for (const server of servers) {
-                    if (server !== currentPort && server !== `:${currentPort}`) {
-                        const isActive = await testServer(server);
-                        if (isActive) {
-                            // Redirecionar para servidor ativo
-                            const redirectUrl = server.includes(':') 
-                                ? `http://${server}${currentPath}${window.location.search}`
-                                : `http://${currentHost}:${server}${currentPath}${window.location.search}`;
-                            console.log(`🔄 Redirecionando para servidor ativo: ${redirectUrl}`);
-                            window.location.replace(redirectUrl);
+
+                // Se falhou, procura um IP vivo
+                for (const ip of servers) {
+                    // Evita redirecionar para si mesmo se já estivermos acessando via IP
+                    if (window.location.hostname === ip) continue;
+
+                    try {
+                        const controller = new AbortController();
+                        setTimeout(() => controller.abort(), 1000);
+                        const resp = await fetch(`http://${ip}/api/health`, { signal: controller.signal });
+                        
+                        if (resp.ok) {
+                            console.log(`🔄 Redirecionando para ${ip}`);
+                            window.location.replace(`http://${ip}`);
                             return;
                         }
-                    }
+                    } catch (e) {}
                 }
-                
-                // Nenhum servidor ativo - redirecionar para fallback
-                console.log('❌ Nenhum servidor ativo encontrado, redirecionando para fallback...');
-                window.location.replace(`http://${currentHost}:5003/fallback.html`);
+                // Se chegou aqui e nada respondeu, talvez o fallback seja a única opção
+                // Mas evitamos loop infinito se o fallback também estiver offline
             }
-            
-            // Executar imediatamente
-            checkAndRedirect();
+            checkCurrentAndFailover();
         })();
     </script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 400px;
-            margin: 100px auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .login-container {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        h1 {
-            text-align: center;
-            color: #333;
-            margin-bottom: 30px;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #555;
-            font-weight: 500;
-        }
-        input {
-            width: 100%;
-            padding: 12px;
-            box-sizing: border-box;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        input:focus {
-            outline: none;
-            border-color: #007bff;
-        }
-        button {
-            width: 100%;
-            padding: 12px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 500;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        .erro {
-            color: #dc3545;
-            margin-top: 15px;
-            padding: 10px;
-            background-color: #f8d7da;
-            border-radius: 4px;
-            display: none;
-        }
-        .erro.visible {
-            display: block;
-        }
+        /* MANTENHA O CSS ORIGINAL AQUI */
+        body { font-family: Arial, sans-serif; max-width: 400px; margin: 100px auto; padding: 20px; background-color: #f5f5f5; }
+        .login-container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; margin-bottom: 30px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #555; font-weight: 500; }
+        input { width: 100%; padding: 12px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        button { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #0056b3; }
+        .erro { color: #dc3545; margin-top: 15px; padding: 10px; background-color: #f8d7da; border-radius: 4px; display: none; }
+        .erro.visible { display: block; }
     </style>
 </head>
 <body>
@@ -163,13 +76,11 @@
     <script>
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
             const login = document.getElementById('login').value;
             const senha = document.getElementById('senha').value;
             const erroDiv = document.getElementById('erro');
             const submitBtn = document.getElementById('submitBtn');
             
-            // Limpar erro anterior
             erroDiv.classList.remove('visible');
             erroDiv.textContent = '';
             submitBtn.disabled = true;
@@ -180,8 +91,6 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    // Salvar URL base do servidor ativo para usar na próxima página
-                    sessionStorage.setItem('apiBaseUrl', apiClient.baseUrl || apiClient.servers[apiClient.currentServerIndex].url);
                     window.location.href = '/perfil.html';
                 } else {
                     erroDiv.textContent = data.erro || 'Erro ao fazer login';
@@ -190,7 +99,7 @@
                     submitBtn.textContent = 'Entrar';
                 }
             } catch (error) {
-                erroDiv.textContent = 'Erro de conexão. Nenhum servidor disponível. Verifique se os containers estão rodando.';
+                erroDiv.textContent = 'Erro de conexão. Verifique os containers.';
                 erroDiv.classList.add('visible');
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Entrar';
@@ -199,4 +108,3 @@
     </script>
 </body>
 </html>
-
