@@ -283,4 +283,17 @@ Botão: "Clear host cache"
 Aba: chrome://net-internals/#sockets
 Botão: "Flush socket pools"
 
+dig @172.20.0.5 www.meutrabalho.com.br
+
 www.meutrabalho.com.br 
+
+
+sudo ifconfig lo0 alias 172.20.0.5
+sudo ifconfig lo0 alias 172.20.0.10
+sudo ifconfig lo0 alias 172.20.0.11
+sudo ifconfig lo0 alias 172.20.0.12
+sudo ifconfig lo0 alias 172.20.0.20
+
+docker compose down                 
+
+docker compose up --build -d
