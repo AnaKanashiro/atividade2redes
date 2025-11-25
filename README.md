@@ -297,3 +297,7 @@ sudo ifconfig lo0 alias 172.20.0.20
 docker compose down                 
 
 docker compose up --build -d
+
+
+172.20.0.5
+127.0.0.1
